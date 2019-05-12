@@ -26,22 +26,6 @@ def svm_loss_naive(W, X, y, reg):
   num_classes = W.shape[1]
   num_train = X.shape[0]
   loss = 0.0
-  for i in xrange(num_train):
-    scores = X[i].dot(W)
-    correct_class_score = scores[y[i]]
-    for j in xrange(num_classes):
-      if j == y[i]:
-        continue
-      margin = scores[j] - correct_class_score + 1 # note delta = 1
-      if margin > 0:
-        loss += margin
-
-  # Right now the loss is a sum over all training examples, but we want it
-  # to be an average instead so we divide by num_train.
-  loss /= num_train
-
-  # Add regularization to the loss.
-  loss += reg * np.sum(W * W)
 
   #############################################################################
   # TODO:                                                                     #
@@ -52,6 +36,39 @@ def svm_loss_naive(W, X, y, reg):
   # code above to compute the gradient.                                       #
   #############################################################################
 
+  losses = np.zeros((num_train, num_classes))
+
+  #print('Naive scores:')
+  for i in xrange(num_train):
+    scores = X[i].dot(W)
+    correct_class_score = scores[y[i]]
+    for j in xrange(num_classes):
+      if j == y[i]:
+        continue
+      margin = scores[j] - correct_class_score + 1  # note delta = 1
+      if margin > 0:
+        loss += margin
+        losses[i,j] = margin
+        dW[:, j] += X[i]
+        dW[:, y[i]] -= X[i]
+    #print(scores)
+
+
+  #print('Naive losses:')
+  #print(losses)
+
+  print('Naive gradient:')
+  print(dW)
+
+
+  # Right now the loss is a sum over all training examples, but we want it
+  # to be an average instead so we divide by num_train.
+  loss /= num_train
+  dW /= num_train
+
+  # Add regularization to the loss.
+  loss += reg * np.sum(W * W)
+  dW += 2*W
 
   return loss, dW
 
@@ -70,7 +87,46 @@ def svm_loss_vectorized(W, X, y, reg):
   # Implement a vectorized version of the structured SVM loss, storing the    #
   # result in loss.                                                           #
   #############################################################################
-  pass
+  num_classes = W.shape[1]
+  num_train = X.shape[0]
+
+  scores = X.dot(W)
+  print("Vectorized scores:")
+  print(scores)
+
+  correct_class_scores = scores.reshape(-1)[np.array(range(num_train))*num_classes + y]
+
+  print("correct class scores:")
+  print(correct_class_scores)
+
+
+
+  print("Vectorized losses (with adjustment)")
+  print(str(((scores+1).T - (correct_class_scores)).T))
+
+
+  losses = (scores.T - correct_class_scores).T
+  print("Vectorized losses (before hinge):")
+  print(losses)
+
+  losses = np.maximum(losses, np.ones(losses.shape) * -1)
+  print("Vectorized losses (before adjustment):")
+  print(losses)
+
+  np.sum(losses)
+
+  loss = np.sum(np.maximum(losses, np.ones(losses.shape) * -1))
+
+  loss +=  (num_classes - 1) * num_train
+
+
+  # Right now the loss is a sum over all training examples, but we want it
+  # to be an average instead so we divide by num_train.
+  loss /= num_train
+
+  # Add regularization to the loss.
+  loss += reg * np.sum(W * W)
+
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
