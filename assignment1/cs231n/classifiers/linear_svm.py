@@ -51,14 +51,17 @@ def svm_loss_naive(W, X, y, reg):
         losses[i,j] = margin
         dW[:, j] += X[i]
         dW[:, y[i]] -= X[i]
+        #print("X[%d] added to col %d and subtracted from col %d" % (i, j, y[i]))
+        #print("Naive gradient so far:")
+        #print(dW)
     #print(scores)
 
 
   #print('Naive losses:')
   #print(losses)
 
-  print('Naive gradient:')
-  print(dW)
+  #print('Naive gradient before regularization:')
+  #print(dW)
 
 
   # Right now the loss is a sum over all training examples, but we want it
@@ -91,34 +94,34 @@ def svm_loss_vectorized(W, X, y, reg):
   num_train = X.shape[0]
 
   scores = X.dot(W)
-  print("Vectorized scores:")
-  print(scores)
+  #print("Vectorized scores:")
+  #print(scores)
 
   correct_class_scores = scores.reshape(-1)[np.array(range(num_train))*num_classes + y]
 
-  print("correct class scores:")
-  print(correct_class_scores)
+  #print("correct class scores:")
+  #print(correct_class_scores)
+
+  correct_class_matrix = np.ones((num_train, num_classes))
+  correct_class_matrix.reshape(-1)[np.array(range(num_train))*num_classes + y] -= 1
+  #print("correct_class_matrix:")
+  #print(correct_class_matrix)
 
 
+  losses = ((scores+1).T - correct_class_scores).T * correct_class_matrix
+  #print("Vectorized losses (with adjustment)")
+  #print(losses)
 
-  print("Vectorized losses (with adjustment)")
-  print(str(((scores+1).T - (correct_class_scores)).T))
+  losses = np.maximum(losses, np.zeros(losses.shape))
+  #print("Vectorized losses (with adjustment + hinge):")
+  #print(losses)
 
+  loss = np.sum(losses)
+  #print("Vectorized total loss:")
+  #print(loss)
 
-  losses = (scores.T - correct_class_scores).T
-  print("Vectorized losses (before hinge):")
-  print(losses)
-
-  losses = np.maximum(losses, np.ones(losses.shape) * -1)
-  print("Vectorized losses (before adjustment):")
-  print(losses)
-
-  np.sum(losses)
-
-  loss = np.sum(np.maximum(losses, np.ones(losses.shape) * -1))
-
-  loss +=  (num_classes - 1) * num_train
-
+  #print("X.T")
+  #print(X.T)
 
   # Right now the loss is a sum over all training examples, but we want it
   # to be an average instead so we divide by num_train.
@@ -141,7 +144,19 @@ def svm_loss_vectorized(W, X, y, reg):
   # to reuse some of the intermediate values that you used to compute the     #
   # loss.                                                                     #
   #############################################################################
-  pass
+
+  losses[losses > 0] = 1
+  grad_mult = losses + ((correct_class_matrix-1).T * np.sum(losses, axis=1)).T
+  #print("Gradient multiplier matrix:")
+  #print(grad_mult)
+
+  dW = np.matmul(X.T, grad_mult)
+  #print("Vectorized gradient matrix before regularization:")
+  #print(dW)
+
+  dW /= num_train
+  dW += 2*W
+
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
