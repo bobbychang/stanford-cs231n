@@ -85,7 +85,9 @@ class LinearClassifier(object):
 
       self.log("W before learning")
       self.log(self.W)
+
       self.W -= grad * learning_rate
+
       self.log("W after learning")
       self.log(self.W)
 
