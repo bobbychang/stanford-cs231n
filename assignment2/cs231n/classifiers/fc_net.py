@@ -258,6 +258,8 @@ class FullyConnectedNet(object):
             if self.use_batchnorm:
                 out, cache[i]['batchnorm'] = batchnorm_forward(out, self.params['gamma' + str(i+1)], self.params['beta' + str(i+1)], self.bn_params[i])
             out, cache[i]['relu'] = relu_forward(out)
+            if self.use_dropout:
+                out, cache[i]['dropout'] = dropout_forward(out, self.dropout_param)
 
         scores, cache[self.num_layers - 1]['affine'] = affine_forward(out, self.params['W' + str(self.num_layers)], self.params['b' + str(self.num_layers)])
 
@@ -294,17 +296,20 @@ class FullyConnectedNet(object):
         loss += .5 * self.reg * np.sum(self.params[W] * self.params[W])
 
         for i in np.arange(self.num_layers - 1):
+            layer = self.num_layers - i - 1
 
-            W = 'W' + str(self.num_layers - i - 1)
-            b = 'b' + str(self.num_layers - i - 1)
-            gamma = 'gamma' + str(self.num_layers - i - 1)
-            beta = 'beta' + str(self.num_layers - i - 1)
-            
-            dx = relu_backward(dx, cache[self.num_layers - i - 2]['relu'])
+            W = 'W' + str(layer)
+            b = 'b' + str(layer)
+            gamma = 'gamma' + str(layer)
+            beta = 'beta' + str(layer)
+
+            if self.use_dropout:
+                dx = dropout_backward(dx, cache[layer - 1]['dropout'])
+            dx = relu_backward(dx, cache[layer - 1]['relu'])
             #print(cache[self.num_layers-2]['affine'][1].shape)
             if self.use_batchnorm:
-                dx, grads[gamma], grads[beta] = batchnorm_backward(dx, cache[self.num_layers - i - 2]['batchnorm'])
-            dx, grads[W], grads[b] = affine_backward(dx, cache[self.num_layers - i - 2]['affine'])
+                dx, grads[gamma], grads[beta] = batchnorm_backward(dx, cache[layer - 1]['batchnorm'])
+            dx, grads[W], grads[b] = affine_backward(dx, cache[layer - 1]['affine'])
             grads[W] += self.reg * self.params[W]
             loss += .5 * self.reg * np.sum(self.params[W] * self.params[W])
 
