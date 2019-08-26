@@ -149,7 +149,10 @@ class CaptioningRNN(object):
         words, words_cache = word_embedding_forward(captions_in, W_embed)
         #print('words.shape = ', words.shape)
 
-        hidden, hidden_cache = rnn_forward(words, hidden0, Wx, Wh, b)
+        if self.cell_type == 'rnn':
+            hidden, hidden_cache = rnn_forward(words, hidden0, Wx, Wh, b)
+        elif self.cell_type == 'lstm':
+            hidden, hidden_cache = lstm_forward(words, hidden0, Wx, Wh, b)
         #print('hidden.shape = ', hidden.shape)
 
         scores, scores_cache = temporal_affine_forward(hidden, W_vocab, b_vocab)
@@ -159,7 +162,11 @@ class CaptioningRNN(object):
 
         dhidden, grads['W_vocab'], grads['b_vocab'] = temporal_affine_backward(dscores, scores_cache)
 
-        dwords, dhidden0, grads['Wx'], grads['Wh'], grads['b'] = rnn_backward(dhidden, hidden_cache)
+        if self.cell_type == 'rnn':
+            dwords, dhidden0, grads['Wx'], grads['Wh'], grads['b'] = rnn_backward(dhidden, hidden_cache)
+        elif self.cell_type == 'lstm':
+            dwords, dhidden0, grads['Wx'], grads['Wh'], grads['b'] = lstm_backward(dhidden, hidden_cache)
+
 
         grads['W_embed'] = word_embedding_backward(dwords, words_cache)
 
@@ -229,17 +236,24 @@ class CaptioningRNN(object):
         ###########################################################################
 
         N, D = features.shape
+        _, H = W_proj.shape
         #print('features.shape = ', features.shape)
 
         words = [self._start] * N
         hidden, _ = affine_forward(features, W_proj, b_proj)
         #print('hidden.shape = ', hidden.shape)
 
+        if self.cell_type == 'lstm':
+            cell = np.zeros((N, H))
+
         for i in np.arange(max_length):
             embedded_words, _ = word_embedding_forward(words, W_embed)
             #print('embedded_words.shape = ', embedded_words.shape)
 
-            hidden, _ = rnn_step_forward(embedded_words, hidden, Wx, Wh, b)
+            if self.cell_type == 'rnn':
+                hidden, _ = rnn_step_forward(embedded_words, hidden, Wx, Wh, b)
+            elif self.cell_type == 'lstm':
+                hidden, cell, _ = lstm_step_forward(embedded_words, hidden, cell, Wx, Wh, b)
             #print('hidden.shape = ', hidden.shape)
 
             scores, _ = affine_forward(hidden, W_vocab, b_vocab)
