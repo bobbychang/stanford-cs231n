@@ -143,19 +143,28 @@ class CaptioningRNN(object):
         N, T = captions.shape
         _, H = W_proj.shape
 
-        hidden0, _ = affine_forward(features, W_proj, b_proj)
+        hidden0, hidden0_cache = affine_forward(features, W_proj, b_proj)
         #print('hidden0.shape = ', hidden0.shape)
 
-        words, _ = word_embedding_forward(captions_in, W_embed)
+        words, words_cache = word_embedding_forward(captions_in, W_embed)
         #print('words.shape = ', words.shape)
 
-        hidden, _ = rnn_forward(words, hidden0, Wx, Wh, b)
+        hidden, hidden_cache = rnn_forward(words, hidden0, Wx, Wh, b)
         #print('hidden.shape = ', hidden.shape)
 
-        scores, _ = temporal_affine_forward(hidden, W_vocab, b_vocab)
+        scores, scores_cache = temporal_affine_forward(hidden, W_vocab, b_vocab)
         #print('scores.shape = ', scores.shape)
 
-        loss, _ = temporal_softmax_loss(scores, captions_out, mask)
+        loss, dscores = temporal_softmax_loss(scores, captions_out, mask)
+
+        dhidden, grads['W_vocab'], grads['b_vocab'] = temporal_affine_backward(dscores, scores_cache)
+
+        dwords, dhidden0, grads['Wx'], grads['Wh'], grads['b'] = rnn_backward(dhidden, hidden_cache)
+
+        grads['W_embed'] = word_embedding_backward(dwords, words_cache)
+
+        _, grads['W_proj'], grads['b_proj'] = affine_backward(dhidden0, hidden0_cache)
+
 
         ############################################################################
         #                             END OF YOUR CODE                             #
@@ -218,7 +227,29 @@ class CaptioningRNN(object):
         # functions; you'll need to call rnn_step_forward or lstm_step_forward in #
         # a loop.                                                                 #
         ###########################################################################
-        pass
+
+        N, D = features.shape
+        #print('features.shape = ', features.shape)
+
+        words = [self._start] * N
+        hidden, _ = affine_forward(features, W_proj, b_proj)
+        #print('hidden.shape = ', hidden.shape)
+
+        for i in np.arange(max_length):
+            embedded_words, _ = word_embedding_forward(words, W_embed)
+            #print('embedded_words.shape = ', embedded_words.shape)
+
+            hidden, _ = rnn_step_forward(embedded_words, hidden, Wx, Wh, b)
+            #print('hidden.shape = ', hidden.shape)
+
+            scores, _ = affine_forward(hidden, W_vocab, b_vocab)
+            #print('scores.shape = ', scores.shape)
+
+            words = np.argmax(scores, axis=1)
+            #print('words.shape = ', words.shape)
+
+            captions[:, i] = words
+
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
