@@ -273,7 +273,45 @@ def lstm_step_forward(x, prev_h, prev_c, Wx, Wh, b):
     # TODO: Implement the forward pass for a single timestep of an LSTM.        #
     # You may want to use the numerically stable sigmoid implementation above.  #
     #############################################################################
-    pass
+
+    N, D = x.shape
+    N, H = prev_h.shape
+
+
+    activation = np.dot(x, Wx) + np.dot(prev_h, Wh) + b
+    #print('activation.shape = ', activation.shape)
+
+    i_gate = sigmoid(activation[:,:H])
+    #print('i_gate.shape = ', i_gate.shape)
+
+    f_gate = sigmoid(activation[:,H:2*H])
+    #print('f_gate.shape = ', f_gate.shape)
+
+    o_gate = sigmoid(activation[:,2*H:3*H])
+    #print('o_gate.shape = ', o_gate.shape)
+
+    g_gate = np.tanh(activation[:,3*H:])
+    #print('g_gate.shape = ', g_gate.shape)
+
+    next_c = f_gate * prev_c + i_gate * g_gate
+    tanh = np.tanh(next_c)
+    next_h = o_gate * tanh
+
+    cache = {
+        'x': x,
+        'prev_h': prev_h,
+        'prev_c': prev_c,
+        'Wx': Wx,
+        'Wh': Wh,
+        'next_h': next_h,
+        'next_c': next_c,
+        'i_gate': i_gate,
+        'f_gate': f_gate,
+        'o_gate': o_gate,
+        'g_gate': g_gate,
+        'tanh': tanh
+    }
+
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
@@ -298,14 +336,42 @@ def lstm_step_backward(dnext_h, dnext_c, cache):
     - dWh: Gradient of hidden-to-hidden weights, of shape (H, 4H)
     - db: Gradient of biases, of shape (4H,)
     """
-    dx, dh, dc, dWx, dWh, db = None, None, None, None, None, None
+    dx, dprev_h, dprev_c, dWx, dWh, db = None, None, None, None, None, None
     #############################################################################
     # TODO: Implement the backward pass for a single timestep of an LSTM.       #
     #                                                                           #
     # HINT: For sigmoid and tanh you can compute local derivatives in terms of  #
     # the output value from the nonlinearity.                                   #
     #############################################################################
-    pass
+
+    dtanh = dnext_h * cache['o_gate']
+    dnext_c = dtanh * (1 - cache['tanh']**2) + dnext_c
+    dprev_c = dnext_c * cache['f_gate']
+    di_gate = dnext_c * cache['g_gate']
+    df_gate = dnext_c * cache['prev_c']
+    do_gate = dnext_h * cache['tanh']
+    dg_gate = dnext_c * cache['i_gate']
+
+    di = di_gate * cache['i_gate'] * (1 - cache['i_gate'])
+    #print('di.shape', di.shape)
+    df = df_gate * cache['f_gate'] * (1 - cache['f_gate'])
+    #print('df.shape', df.shape)
+    do = do_gate * cache['o_gate'] * (1 - cache['o_gate'])
+    #print('do.shape', do.shape)
+    dg = dg_gate * (1 - cache['g_gate'] ** 2)
+    #print('dg.shape', dg.shape)
+
+    dactivation = np.append(np.append(di, df, axis=1), np.append(do, dg, axis=1), axis=1)
+    #print('dactivation.shape = ', dactivation.shape)
+
+    dx = np.dot(dactivation, cache['Wx'].T)
+    dprev_h = np.dot(dactivation, cache['Wh'].T)
+    dWx = np.dot(cache['x'].T, dactivation)
+    dWh = np.dot(cache['prev_h'].T, dactivation)
+    db = np.sum(dactivation, axis=0)
+
+
+
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
