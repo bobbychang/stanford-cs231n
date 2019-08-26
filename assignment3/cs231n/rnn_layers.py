@@ -106,7 +106,17 @@ def rnn_forward(x, h0, Wx, Wh, b):
     # input data. You should use the rnn_step_forward function that you defined  #
     # above. You can use a for loop to help compute the forward pass.            #
     ##############################################################################
-    pass
+    N, T, D = x.shape
+    _, H = h0.shape
+
+    h = np.empty((N, T, H))
+    cache = [{}] * T
+
+    h[:, 0], cache[0] = rnn_step_forward(x[:,0], h0, Wx, Wh, b)
+
+    for i in np.arange(1,T):
+        h[:, i], cache[i] = rnn_step_forward(x[:, i], h[:, i-1], Wx, Wh, b)
+
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
@@ -133,7 +143,23 @@ def rnn_backward(dh, cache):
     # sequence of data. You should use the rnn_step_backward function that you   #
     # defined above. You can use a for loop to help compute the backward pass.   #
     ##############################################################################
-    pass
+    N, T, H = dh.shape
+    _, D = cache[0]['x'].shape
+
+    dx = np.zeros((N, T, D))
+
+    dWx_a, dWh_a, db_a = np.zeros((D,T,H)), np.zeros((H,T,H)), np.zeros((H,T))
+
+    dprev_h = 0
+    for i in np.arange(1, T)[::-1]:
+        dx[:, i], dprev_h, dWx_a[:, i], dWh_a[:, i], db_a[:, i] = rnn_step_backward(dh[:, i] + dprev_h, cache[i])
+
+    dx[:, 0], dh0, dWx_a[:, 0], dWh_a[:, 0], db_a[:, 0] = rnn_step_backward(dh[:, 0] + dprev_h, cache[0])
+
+    dWx = np.sum(dWx_a, axis=1)
+    dWh = np.sum(dWh_a, axis=1)
+    db = np.sum(db_a, axis=1)
+
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
